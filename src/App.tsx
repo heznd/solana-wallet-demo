@@ -49,7 +49,7 @@ import {
   SystemProgram,
   Transaction,
 } from "@solana/web3.js";
-import React, { FC, useCallback, useMemo } from "react";
+import { FC, useCallback, useMemo } from "react";
 
 import { getOrCreateAssociatedTokenAccount } from "./transfer";
 import { getTokenAccountsByOwner } from "./util";
@@ -121,18 +121,30 @@ export const SendLamports: FC = () => {
       SystemProgram.transfer({
         fromPubkey: publicKey,
         toPubkey: Keypair.generate().publicKey,
-        lamports: 1,
+        lamports: 1e6,
       })
     );
 
     const signature = await sendTransaction(transaction, connection);
+
     console.log(signature);
-    await connection.confirmTransaction(signature, "processed");
+    const latestBlockHash = await connection.getLatestBlockhash();
+    console.log(latestBlockHash);
+
+    const result = await connection.confirmTransaction({
+      blockhash: latestBlockHash.blockhash,
+      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+      signature,
+    });
+    console.log(`result: ${JSON.stringify(result)}`);
+    if (result.context.slot) {
+      return true;
+    }
   }, [publicKey, sendTransaction, connection]);
 
   return (
     <button onClick={onClick} disabled={!publicKey}>
-      Send 1 lamport to a random address!
+      Send lamports to a random address!
     </button>
   );
 };
@@ -234,6 +246,18 @@ export const LiquiditySwap: FC = () => {
       skipPreflight: true,
     });
     console.log(`swap end: ${txid}`);
+
+    const latestBlockHash = await connection.getLatestBlockhash();
+
+    const result = await connection.confirmTransaction({
+      blockhash: latestBlockHash.blockhash,
+      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+      signature: txid,
+    });
+    console.log(`result: ${JSON.stringify(result)}`);
+    if (result.context.slot) {
+      return true;
+    }
   }, [publicKey, sendTransaction, connection]);
 
   return (
@@ -296,10 +320,10 @@ export const TransferSplToken: FC = () => {
         lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
         signature: txid,
       });
+      console.log(`result: ${JSON.stringify(result)}`);
       if (result.context.slot) {
         return true;
       }
-      console.log(`result: ${JSON.stringify(result)}`);
     } catch (err) {
       // err handle
     }
